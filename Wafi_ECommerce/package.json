@@ -1,0 +1,38 @@
+{
+  "name": "start-app-dir",
+  "version": "0.1.0",
+  "private": true,
+  "author": "alithemes",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "sass": "sass --watch public/assets/scss/main.scss:public/assets/css/main.css"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@reduxjs/toolkit": "^2.0.1",
+    "next": "^14.2.32",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-input-range": "^1.3.0",
+    "react-modal-video": "^2.0.1",
+    "react-redux": "^9.0.4",
+    "react-toastify": "^9.1.3",
+    "sass": "^1.69.5",
+    "swiper": "^11.0.5",
+    "wowjs": "^1.1.3"
+  },
+  "description": "ninico-nextjs",
+  "main": "next.config.js",
+  "keywords": [],
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/react": "19.1.13",
+    "prisma": "^6.16.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
