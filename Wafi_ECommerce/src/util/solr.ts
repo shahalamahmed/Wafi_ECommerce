@@ -1,7 +1,7 @@
 
-const SOLR_URL = 'http://160.250.95.30:8983/solr';
-const SOLR_USERNAME = 'rayhan';
-const SOLR_PASSWORD = 'rayhan586';
+const SOLR_URL = process.env.SOLR_URL;
+const SOLR_USERNAME = process.env.SOLR_USERNAME;
+const SOLR_PASSWORD = process.env.SOLR_PASSWORD;
 
 // Create base64 encoded credentials for Basic Auth
 export const getAuthHeader = () => {
@@ -50,7 +50,6 @@ export const querySolr = async <T = any>(params: {
     tags = ['solr'],
   } = params;
 
-  if (!SOLR_URL) throw new Error('Solr URL is not configured');
   if (!core) throw new Error('Solr core is required');
 
   const searchParams = new URLSearchParams();
@@ -66,16 +65,27 @@ export const querySolr = async <T = any>(params: {
     searchParams.set(key, value);
   });
 
-  const solrUrl = `${SOLR_URL}/${core}/select?${searchParams.toString()}`;
+  const isServer = typeof window === 'undefined';
+  const solrUrl = isServer
+    ? `${SOLR_URL}/${core}/select?${searchParams.toString()}`
+    : `/api/solr/${core}?${searchParams.toString()}`;
 
   try {
-    const response = await fetch(solrUrl, {
-      headers: {
-        'Authorization': getAuthHeader(),
-        'Content-Type': 'application/json'
-      },
-      next: { revalidate, tags }
-    });
+    const fetchInit: RequestInit & { next?: { revalidate: number; tags: string[] } } = isServer
+      ? {
+          headers: {
+            Authorization: getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          next: { revalidate, tags },
+        }
+      : {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
+
+    const response = await fetch(solrUrl, fetchInit);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -137,7 +147,6 @@ export const querySolrForGrouping = async <T = any>(params: {
     groupSort
   } = params;
 
-  if (!SOLR_URL) throw new Error('Solr URL is not configured');
   if (!core) throw new Error('Solr core is required');
 
   const searchParams = new URLSearchParams();
@@ -161,17 +170,27 @@ export const querySolrForGrouping = async <T = any>(params: {
     searchParams.set(key, value);
   });
 
-
-  const solrUrl = `${SOLR_URL}/${core}/select?${searchParams.toString()}`;
+  const isServer = typeof window === 'undefined';
+  const solrUrl = isServer
+    ? `${SOLR_URL}/${core}/select?${searchParams.toString()}`
+    : `/api/solr/${core}?${searchParams.toString()}`;
 
   try {
-    const response = await fetch(solrUrl, {
-      headers: {
-        'Authorization': getAuthHeader(),
-        'Content-Type': 'application/json'
-      },
-      next: { revalidate, tags }
-    });
+    const fetchInit: RequestInit & { next?: { revalidate: number; tags: string[] } } = isServer
+      ? {
+          headers: {
+            Authorization: getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          next: { revalidate, tags },
+        }
+      : {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
+
+    const response = await fetch(solrUrl, fetchInit);
 
     if (!response.ok) {
       const errorText = await response.text();
