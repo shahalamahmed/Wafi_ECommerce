@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client"
+import "server-only"
 
 /**
  * 📌 Advanced Prisma Client with Multi-DB Support
@@ -22,6 +23,8 @@ import { Prisma, PrismaClient } from "@prisma/client"
 1️⃣ Environment Validation
 -------------------------------*/
 const validateEnvironment = () => {
+  // Do not run any environment validation on the client
+  if (typeof window !== "undefined") return
   const required = {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
@@ -39,6 +42,9 @@ const validateEnvironment = () => {
   }
 }
 validateEnvironment()
+
+// Server/runtime guard
+const isServer = typeof window === "undefined"
 
 /*-------------------------------
 2️⃣ Prisma Client Options Creation
@@ -61,11 +67,7 @@ const createPrismaOptions = (databaseUrl: string): Prisma.PrismaClientOptions =>
 3️⃣ Type Definitions
 -------------------------------*/
 type WriteOptions = { writeToPrimary?: boolean }
-type TransactionOptions = WriteOptions & {
-  maxWait?: number
-  timeout?: number
-  isolationLevel?: Prisma.TransactionIsolationLevel
-}
+type TransactionOptions = WriteOptions & { timeout?: number }
 
 /*-------------------------------
 4️⃣ Global Singleton for Hot-Reload
@@ -78,14 +80,16 @@ const globalForPrisma = globalThis as unknown as {
 /*-------------------------------
 5️⃣ Prisma Clients (Main & Primary)
 -------------------------------*/
-const prismaMain =
-  globalForPrisma.prismaMain ?? new PrismaClient(createPrismaOptions(process.env.DATABASE_URL!))
-const prismaPrimary =
-  globalForPrisma.prismaPrimary ??
-  new PrismaClient(createPrismaOptions(process.env.DATABASE_PRIMARY_URL || process.env.DATABASE_URL!))
+const prismaMain = isServer
+  ? globalForPrisma.prismaMain ?? new PrismaClient(createPrismaOptions(process.env.DATABASE_URL!))
+  : (undefined as unknown as PrismaClient)
+const prismaPrimary = isServer
+  ? globalForPrisma.prismaPrimary ??
+    new PrismaClient(createPrismaOptions(process.env.DATABASE_PRIMARY_URL || process.env.DATABASE_URL!))
+  : (undefined as unknown as PrismaClient)
 
 // Hot-reload safe assignment in dev
-if (process.env.NODE_ENV !== "production") {
+if (isServer && process.env.NODE_ENV !== "production") {
   globalForPrisma.prismaMain = prismaMain
   globalForPrisma.prismaPrimary = prismaPrimary
 }
@@ -163,34 +167,13 @@ function createPrismaProxy(): PrismaClient {
       // Handle $transaction with writeToPrimary support
       if (prop === "$transaction") {
         return async <T>(
-          args: Prisma.PrismaPromise<T>[] | ((tx: Prisma.TransactionClient) => Promise<T>),
+          args: Prisma.PrismaPromise<T>[] | Prisma.TransactionClient,
           options?: TransactionOptions
         ): Promise<T> => {
           const { writeToPrimary, timeout, ...rest } = options || {}
           try {
-            // Conditionally include timeout only if it's a valid number
-            const transactionOptions = {
-              ...rest,
-              ...(typeof timeout === "number" ? { timeout } : {}),
-            }
-
-            if (writeToPrimary) {
-              if (Array.isArray(args)) {
-                // Overload 1: Array of Prisma promises
-                return await prismaPrimary.$transaction(args, transactionOptions) as T
-              } else {
-                // Overload 2: Transaction callback
-                return await prismaPrimary.$transaction(args as (tx: Prisma.TransactionClient) => Promise<T>, transactionOptions)
-              }
-            } else {
-              if (Array.isArray(args)) {
-                // Overload 1: Array of Prisma promises
-                return await prismaMain.$transaction(args, transactionOptions) as T
-              } else {
-                // Overload 2: Transaction callback
-                return await prismaMain.$transaction(args as (tx: Prisma.TransactionClient) => Promise<T>, transactionOptions)
-              }
-            }
+            if (writeToPrimary) return await prismaPrimary.$transaction(args as any, { timeout, ...rest })
+            return await prismaMain.$transaction(args as any, { timeout, ...rest })
           } catch (error) {
             console.error(
               `Transaction failed: ${error instanceof Error ? error.message : "Unknown error"}`
@@ -212,7 +195,16 @@ function createPrismaProxy(): PrismaClient {
 }
 
 // Export singleton Prisma client
-export const prisma = createPrismaProxy()
+export const prisma = isServer
+  ? createPrismaProxy()
+  : (new Proxy(
+      {},
+      {
+        get() {
+          throw new Error("Prisma is not available on the client. Import server-only modules from server components or API routes.")
+        },
+      }
+    ) as unknown as PrismaClient)
 
 /*-------------------------------
 🔹 Health Check
@@ -237,6 +229,7 @@ export async function checkDatabaseHealth(): Promise<{
 -------------------------------*/
 export async function disconnectPrisma(): Promise<void> {
   try {
+    if (!isServer) return
     await Promise.all([prismaMain.$disconnect(), prismaPrimary.$disconnect()])
     console.log("Prisma clients disconnected successfully")
   } catch (error) {
@@ -245,6 +238,7 @@ export async function disconnectPrisma(): Promise<void> {
 }
 
 const setupGracefulShutdown = () => {
+  if (!isServer) return
   const shutdown = async (signal: string) => {
     console.log(`Received ${signal}, shutting down gracefully...`)
     await disconnectPrisma()

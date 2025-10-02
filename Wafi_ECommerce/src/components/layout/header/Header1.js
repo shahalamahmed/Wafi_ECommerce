@@ -7,11 +7,51 @@ import HeaderMobSticky from "../HeaderMobSticky"
 import HeaderSticky from "../HeaderSticky"
 import HeaderTabSticky from "../HeaderTabSticky"
 
+import { useEffect } from "react";
+import { SolrService } from "@/services/solr-service";
+
 
 export default function Header1({ scroll, isMobileMenu, handleMobileMenu, isCartSidebar, handleCartSidebar }) {
     const [isToggled, setToggled] = useState(true)
     const handleToggle = () => setToggled(!isToggled)
+
+    const [groups, setGroups] = useState([]);
+    console.log(groups);
+    
+    const [categories, setCategories] = useState([]);
+    console.log(categories);
+    
+    const [hoveredSlug, setHoveredSlug] = useState(null);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+
+
+    useEffect(() => {
+        const fetchProductGroups = async () => {
+            const result = await SolrService.getProductGroups({ pageSize: 15 });
+            if (result) {
+                setGroups(result.data);
+            }
+        };
+        fetchProductGroups();
+    }, []);
+
+    const handleGroupHover = async (slug) => {
+        if (slug === hoveredSlug) return;
+
+        setHoveredSlug(slug);
+        setIsLoadingCategories(true);
+        const result = await SolrService.getCategoriesByProductGroup(slug);
+        if (result) {
+            setCategories(result.data);
+        } else {
+            setCategories([]);
+        }
+        setIsLoadingCategories(false);
+    };
+
+
     return (
+
         <>
             <header>
                 <div className="header-top space-bg">
@@ -96,37 +136,83 @@ export default function Header1({ scroll, isMobileMenu, handleMobileMenu, isCart
                             <div className="row align-items-center">
                                 <div className="col-xl-2 col-lg-3">
                                     <div className="cat-menu__category p-relative">
-                                        <a className="tp-cat-toggle" onClick={handleToggle} role="button"><i className="fal fa-bars" />Categories</a>
-                                        <div className="category-menu category-menu-off" style={{ display: `${isToggled ? "block" : "none"}` }}>
-                                            <ul className="cat-menu__list">
-                                                <li><Link href="/shop"><i className="fal fa-user" /> Candles</Link></li>
-                                                <li className="menu-item-has-children"><Link href="/shop"><i className="fal fa-flower-tulip" /> Handmade</Link>
-                                                    <ul className="submenu">
-                                                        <li><Link href="/shop-2">Chair</Link></li>
-                                                        <li><Link href="/shop-2">Table</Link></li>
-                                                        <li><Link href="/shop">Wooden</Link></li>
-                                                        <li><Link href="/shop">furniture</Link></li>
-                                                        <li><Link href="/shop">Clock</Link></li>
-                                                        <li><Link href="/shop">Gifts</Link></li>
-                                                        <li><Link href="/shop">Crafts</Link></li>
-                                                    </ul>
-                                                </li>
-                                                <li><Link href="/shop"><i className="fal fa-shoe-prints" /> Gift Sets</Link></li>
-                                                <li><Link href="/shop"><i className="fal fa-smile" /> Plastic Gifts</Link></li>
-                                                <li><Link href="/shop"><i className="fal fa-futbol" /> Handy Cream</Link></li>
-                                                <li><Link href="/shop"><i className="fal fa-crown" /> Cosmetics</Link></li>
-                                                <li><Link href="/shop"><i className="fal fa-gift" /> Silk Accessories</Link></li>
+                                        <a className="tp-cat-toggle" onClick={handleToggle} role="button">
+                                            <i className="fal fa-bars" />Categories
+                                        </a>
+                                        <div
+                                            className="category-menu category-menu-off"
+                                            style={{ display: `${isToggled ? "block" : "none"}` }}
+                                        >
+                                            <ul
+                                                className="cat-menu__list"
+                                                onMouseLeave={() => {
+                                                    setHoveredSlug(null);
+                                                    setCategories([]);
+                                                }}
+                                            >
+                                                {groups.map((group) => (
+                                                    <li
+                                                        key={group.id}
+                                                        className={
+                                                            categories.length > 0 && hoveredSlug === group.slug
+                                                                ? "menu-item-has-children"
+                                                                : ""
+                                                        }
+                                                        onMouseEnter={() => handleGroupHover(group.slug)}
+                                                    >
+                                                        <Link href={`/group/${group.slug}`}>
+                                                            {group.iconUrl && (
+                                                                <img
+                                                                    src={group.iconUrl}
+                                                                    alt={group.name}
+                                                                    style={{ width: "16px", marginRight: "8px" }}
+                                                                />
+                                                            )}
+                                                            {group.name}
+                                                        </Link>
+
+                                                        {hoveredSlug === group.slug && (
+                                                            <ul className="submenu">
+                                                                {isLoadingCategories ? (
+                                                                    <li>
+                                                                        <a>Loading...</a>
+                                                                    </li>
+                                                                ) : categories.length > 0 ? (
+                                                                    categories.map((category) => (
+                                                                        <li key={category.id}>
+                                                                            <Link href={`/category/${category.slug}`}>
+                                                                                {category.name}
+                                                                            </Link>
+                                                                        </li>
+                                                                    ))
+                                                                ) : (
+                                                                    <li>
+                                                                        <a>No categories found</a>
+                                                                    </li>
+                                                                )}
+                                                            </ul>
+                                                        )}
+                                                    </li>
+                                                ))}
                                             </ul>
+
                                             <div className="daily-offer">
                                                 <ul>
-                                                    <li><Link href="/shop">Value of the Day</Link></li>
-                                                    <li><Link href="/shop">Top 100 Offers</Link></li>
-                                                    <li><Link href="/shop">New Arrivals</Link></li>
+                                                    <li>
+                                                        <Link href="/shop">Value of the Day</Link>
+                                                    </li>
+                                                    <li>
+                                                        <Link href="/shop">Top 100 Offers</Link>
+                                                    </li>
+                                                    <li>
+                                                        <Link href="/shop">New Arrivals</Link>
+                                                    </li>
                                                 </ul>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+
                                 <div className="col-xl-7 col-lg-6">
                                     <div className="main-menu">
                                         <nav id="mobile-menu">

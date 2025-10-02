@@ -1,7 +1,7 @@
 
-const SOLR_URL = process.env.SOLR_URL;
-const SOLR_USERNAME = process.env.SOLR_USERNAME;
-const SOLR_PASSWORD = process.env.SOLR_PASSWORD;
+const SOLR_URL = 'http://160.250.95.30:8983/solr';
+const SOLR_USERNAME = 'rayhan';
+const SOLR_PASSWORD = 'rayhan586';
 
 // Create base64 encoded credentials for Basic Auth
 export const getAuthHeader = () => {
